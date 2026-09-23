@@ -45,8 +45,12 @@ jobs:
           python-version: "3.12"
           cache: pip
       - run: pip install -r requirements.txt
+      # Via env, not ${{ }} inlined into the script: secret text is never
+      # parsed as shell.
       - name: Write Aiven CA cert
-        run: printf '%s\n' "${{ secrets.MYSQL_SSL_CA_PEM }}" > aiven-ca.pem
+        env:
+          CA_PEM: ${{ secrets.MYSQL_SSL_CA_PEM }}
+        run: printf '%s\n' "$CA_PEM" > aiven-ca.pem
       - name: Extract + load
         run: python -m extract.run
       - name: Backtest + forecast
