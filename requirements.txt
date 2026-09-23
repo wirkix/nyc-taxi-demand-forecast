@@ -1,0 +1,16 @@
+requests
+truststore
+duckdb
+pandas
+pyarrow
+SQLAlchemy
+PyMySQL
+cryptography
+holidays
+scikit-learn
+prophet
+plotly
+jupyter
+nbconvert
+papermill
+python-dotenv

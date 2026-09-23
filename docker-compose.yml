@@ -1,0 +1,23 @@
+# Local MySQL for development only -- production is Aiven's free MySQL.
+# sql_require_primary_key mirrors Aiven's enforced setting, so a table
+# without a primary key fails here first instead of in the refresh workflow.
+services:
+  mysql:
+    image: mysql:8.4
+    command: ["--sql-require-primary-key=ON"]
+    environment:
+      MYSQL_DATABASE: taxi
+      MYSQL_USER: taxi
+      MYSQL_PASSWORD: taxi
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ptaxi", "-utaxi"]
+      interval: 5s
+      retries: 20
+
+volumes:
+  mysql-data:

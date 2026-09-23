@@ -1,0 +1,64 @@
+name: Refresh
+
+# Weekly: load any newly published TLC month + weather, re-run backtests
+# and the forward forecast, execute the report notebook, publish it to
+# GitHub Pages. TLC only publishes monthly, so most weeks the extract is a
+# no-op -- the run still matters as the keep-alive that stops Aiven from
+# powering off the free MySQL service for inactivity.
+on:
+  schedule:
+    - cron: "0 12 * * 1" # Mondays 12:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    # A first run on an empty database backfills every month since
+    # BACKFILL_START (~40s each); later runs take a few minutes.
+    timeout-minutes: 120
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      MYSQL_HOST: ${{ secrets.MYSQL_HOST }}
+      MYSQL_PORT: ${{ secrets.MYSQL_PORT }}
+      MYSQL_USER: ${{ secrets.MYSQL_USER }}
+      MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+      MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
+      MYSQL_SSL_CA: ${{ github.workspace }}/aiven-ca.pem
+    steps:
+      - name: Check secrets
+        if: env.MYSQL_HOST == ''
+        run: |
+          echo "::error::MYSQL_* secrets are not set -- see README 'Deploying'"
+          exit 1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Write Aiven CA cert
+        run: printf '%s\n' "${{ secrets.MYSQL_SSL_CA_PEM }}" > aiven-ca.pem
+      - name: Extract + load
+        run: python -m extract.run
+      - name: Backtest + forecast
+        run: python -m forecast.run
+      - name: Execute report
+        run: |
+          papermill notebooks/report.ipynb report.executed.ipynb --cwd .
+          mkdir -p site
+          jupyter nbconvert report.executed.ipynb --to html --no-input \
+            --output-dir site --output index
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
