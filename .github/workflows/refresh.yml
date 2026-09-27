@@ -4,7 +4,8 @@ name: Refresh
 # and the forward forecast, execute the report notebook, publish it to
 # GitHub Pages. TLC only publishes monthly, so most weeks the extract is a
 # no-op -- the run still matters as the keep-alive that stops Aiven from
-# powering off the free MySQL service for inactivity.
+# powering off the free MySQL service for inactivity (DB traffic plus an
+# authenticated Aiven API call; see the "Aiven keep-alive" step).
 on:
   schedule:
     - cron: "0 12 * * 1" # Mondays 12:00 UTC
@@ -33,12 +34,34 @@ jobs:
       MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
       MYSQL_DATABASE: ${{ secrets.MYSQL_DATABASE }}
       MYSQL_SSL_CA: ${{ github.workspace }}/aiven-ca.pem
+      AIVEN_PROJECT: nyc-trips-and-weather
+      AIVEN_SERVICE: mysql-nyc-tlc
     steps:
       - name: Check secrets
         if: env.MYSQL_HOST == ''
         run: |
           echo "::error::MYSQL_* secrets are not set -- see README 'Deploying'"
           exit 1
+      # Aiven warned about inactivity even with weekly DB traffic, so the
+      # run also touches the Aiven platform API. Doubles as a clear failure
+      # when the free service has already been powered off.
+      - name: Aiven keep-alive
+        env:
+          AIVEN_API_TOKEN: ${{ secrets.AIVEN_API_TOKEN }}
+        run: |
+          if [ -z "$AIVEN_API_TOKEN" ]; then
+            echo "::error::AIVEN_API_TOKEN secret is not set -- see README 'Deploying'"
+            exit 1
+          fi
+          state=$(curl -sSf \
+            -H "Authorization: aivenv1 $AIVEN_API_TOKEN" \
+            "https://api.aiven.io/v1/project/$AIVEN_PROJECT/service/$AIVEN_SERVICE" \
+            | jq -r '.service.state')
+          echo "Aiven service $AIVEN_SERVICE state: $state"
+          if [ "$state" != "RUNNING" ]; then
+            echo "::error::Aiven service is $state, not RUNNING -- power it on in the Aiven Console"
+            exit 1
+          fi
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
