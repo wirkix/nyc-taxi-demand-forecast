@@ -79,7 +79,13 @@ docker-compose.yml    local MySQL 8.4 only
 - Aiven's free tier is 1 GB; hour x zone is ~100k rows/month, so
   `BACKFILL_START` defaults to 2024-01 (~3M rows).
 - Free services can be powered off after inactivity -- the weekly refresh
-  run is the keep-alive.
+  run is the keep-alive. **DB traffic alone apparently doesn't count:**
+  Aiven sent an inactivity warning on 2026-09-27, four days after two
+  successful refresh runs had read/written the DB. Their docs don't define
+  "activity"; the email asks for a Console login. So refresh.yml also makes
+  an authenticated Aiven API call (`AIVEN_API_TOKEN` secret) and fails if
+  the service isn't RUNNING. Unverified whether API calls count either --
+  if the warning comes back, log in to the Console by hand.
 
 ## Known gotchas / history
 

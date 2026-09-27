@@ -89,7 +89,10 @@ ruff check . && ruff format --check .
    and download the CA certificate.
 2. Add repository secrets: `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`,
    `MYSQL_PASSWORD`, `MYSQL_DATABASE`, and `MYSQL_SSL_CA_PEM` (the CA
-   certificate's full text).
+   certificate's full text). Also add `AIVEN_API_TOKEN` (Aiven Console ->
+   User profile -> Tokens): the weekly run calls the Aiven API with it as
+   a keep-alive. If your project/service names differ, change
+   `AIVEN_PROJECT`/`AIVEN_SERVICE` in `refresh.yml`.
 3. Settings -> Pages -> Source: **GitHub Actions**.
 4. Run the **Refresh** workflow manually once (the first run backfills from
    `BACKFILL_START`); after that it runs every Monday.
